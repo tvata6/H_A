@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>تطبيق المندوب</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0F2A47; --navy-light: #1B3E63; --green: #1E7A4C;
+    --bg: #F6F7F9; --surface: #FFFFFF; --border: #E4E7EB; --text: #1A2433; --text-muted: #6B7280;
+    --success: #1E8E3E; --success-bg: #E7F5EC; --warning: #B98600; --warning-bg: #FBF2DD;
+    --danger: #C42B2B; --danger-bg: #FBEAEA; --info: #2563A8; --info-bg: #E9F1FA;
+    --radius: 12px; --shadow: 0 2px 10px rgba(15,42,71,0.08);
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; font-family:'Tajawal','Inter',sans-serif; background:var(--bg); color:var(--text); font-size:15px; overscroll-behavior-y:contain; }
+  input, select, button, textarea { font-family:inherit; font-size:15px; }
+  .num { font-family:'Inter','Tajawal',sans-serif; font-variant-numeric:tabular-nums; }
+  button { -webkit-appearance:none; }
+
+  /* ---------- Login ---------- */
+  #login-view { min-height:100vh; display:flex; align-items:center; justify-content:center; background:linear-gradient(160deg, var(--navy) 0%, var(--navy-light) 60%, #274A6E 100%); padding:20px; }
+  .login-card { background:var(--surface); border-radius:20px; padding:32px 24px; width:100%; max-width:380px; box-shadow:0 20px 60px rgba(0,0,0,0.3); }
+  .login-card h1 { font-size:20px; margin:0 0 4px; color:var(--navy); text-align:center; }
+  .login-card p.sub { color:var(--text-muted); margin:0 0 22px; font-size:13px; text-align:center; }
+  .field { margin-bottom:14px; }
+  .field label { display:block; font-size:13px; font-weight:500; margin-bottom:6px; color:var(--text); }
+  .field input, .field select, .field textarea { width:100%; padding:13px 14px; border:1px solid var(--border); border-radius:10px; background:#fff; color:var(--text); }
+  .field input:focus, .field select:focus { outline:none; border-color:var(--navy); box-shadow:0 0 0 3px rgba(15,42,71,0.1); }
+  .btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:14px 18px; border-radius:12px; border:1px solid transparent; font-weight:700; cursor:pointer; font-size:15px; }
+  .btn-primary { background:var(--navy); color:#fff; }
+  .btn-secondary { background:#fff; border-color:var(--border); color:var(--text); }
+  .btn-success { background:var(--success); color:#fff; }
+  .btn-danger { background:var(--danger); color:#fff; }
+  .btn-block { width:100%; }
+  .btn:disabled { opacity:.5; }
+  .btn-lg { padding:16px; font-size:16px; }
+  #login-error { display:none; background:var(--danger-bg); color:var(--danger); padding:10px 12px; border-radius:10px; font-size:13px; margin-bottom:14px; }
+
+  /* ---------- App Shell ---------- */
+  #app-view { display:none; min-height:100vh; padding-bottom:78px; }
+  .topbar { position:sticky; top:0; z-index:20; background:var(--navy); color:#fff; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; }
+  .topbar .title { font-weight:700; font-size:16px; }
+  .topbar .icons { display:flex; align-items:center; gap:10px; }
+  .icon-btn { background:rgba(255,255,255,0.12); border:none; color:#fff; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; cursor:pointer; }
+  .sync-pill { background:var(--warning); color:#fff; font-size:11px; padding:3px 9px; border-radius:20px; font-weight:700; }
+  .sync-pill.failed { background:var(--danger); }
+
+  .screen { padding:16px; }
+  .screen-title { font-size:19px; font-weight:700; color:var(--navy); margin:0 0 2px; }
+  .screen-sub { color:var(--text-muted); font-size:12.5px; margin:0 0 16px; }
+
+  /* ---------- Cards ---------- */
+  .card { background:var(--surface); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); margin-bottom:12px; }
+  .kpi-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; }
+  .kpi-card { background:var(--surface); border-radius:var(--radius); padding:14px; box-shadow:var(--shadow); }
+  .kpi-card .label { font-size:11.5px; color:var(--text-muted); margin-bottom:4px; }
+  .kpi-card .value { font-size:20px; font-weight:700; color:var(--navy); }
+  .kpi-card .value.success { color:var(--success); } .kpi-card .value.danger { color:var(--danger); }
+
+  .customer-card { background:var(--surface); border-radius:var(--radius); padding:14px; box-shadow:var(--shadow); margin-bottom:10px; display:flex; flex-direction:column; gap:8px; }
+  .customer-card .row1 { display:flex; justify-content:space-between; align-items:flex-start; }
+  .customer-card .name { font-weight:700; font-size:15.5px; }
+  .customer-card .addr { color:var(--text-muted); font-size:12.5px; margin-top:2px; }
+  .customer-card .balance { font-weight:700; font-size:14px; }
+  .customer-card .balance.owes { color:var(--danger); } .customer-card .balance.clear { color:var(--success); }
+  .customer-card .actions { display:flex; gap:8px; }
+  .customer-card .actions .btn { flex:1; padding:10px; font-size:13px; }
+
+  .badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11.5px; font-weight:700; }
+  .badge.paid { background:var(--success-bg); color:var(--success); }
+  .badge.partial { background:var(--warning-bg); color:var(--warning); }
+  .badge.unpaid { background:var(--danger-bg); color:var(--danger); }
+
+  .empty-state { text-align:center; padding:40px 16px; color:var(--text-muted); }
+  .empty-state .ic { font-size:38px; margin-bottom:10px; }
+
+  /* ---------- Bottom Nav ---------- */
+  .bottom-nav { position:fixed; bottom:0; left:0; right:0; background:var(--surface); border-top:1px solid var(--border); display:flex; z-index:30; padding-bottom:env(safe-area-inset-bottom); }
+  .nav-tab { flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; padding:9px 4px 8px; color:var(--text-muted); background:none; border:none; cursor:pointer; }
+  .nav-tab.active { color:var(--navy); }
+  .nav-tab .ic { font-size:20px; }
+  .nav-tab .lbl { font-size:10.5px; font-weight:600; }
+  .nav-tab.center .ic-wrap { background:var(--navy); color:#fff; width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:20px; margin-top:-18px; box-shadow:0 4px 10px rgba(15,42,71,0.35); }
+
+  /* ---------- Full-screen sheet ---------- */
+  .sheet-overlay { position:fixed; inset:0; background:#fff; z-index:100; display:none; flex-direction:column; }
+  .sheet-overlay.open { display:flex; }
+  .sheet-head { padding:14px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; background:var(--surface); position:sticky; top:0; z-index:5; }
+  .sheet-head h3 { margin:0; font-size:16px; }
+  .close-x { background:var(--bg); border:none; color:var(--text); font-size:16px; width:32px; height:32px; border-radius:50%; cursor:pointer; }
+  .sheet-body { padding:16px; flex:1; overflow-y:auto; padding-bottom:100px; }
+  .sheet-foot { position:sticky; bottom:0; background:var(--surface); border-top:1px solid var(--border); padding:12px 16px; padding-bottom:calc(12px + env(safe-area-inset-bottom)); }
+
+  .section-title { font-size:12.5px; font-weight:700; color:var(--navy); margin:16px 0 8px; text-transform:uppercase; letter-spacing:.3px; }
+  .section-title:first-child { margin-top:0; }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+
+  .quick-actions { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:16px; }
+  .quick-actions button { display:flex; flex-direction:column; align-items:center; gap:4px; padding:12px 4px; background:var(--surface); border:1px solid var(--border); border-radius:12px; font-size:11px; font-weight:600; color:var(--text); }
+  .quick-actions button .ic { font-size:20px; }
+
+  .item-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:14px; margin-bottom:12px; box-shadow:var(--shadow); position:relative; overflow:hidden; transition:box-shadow .2s; }
+  .item-card.filled { box-shadow:0 4px 16px rgba(15,42,71,0.1); }
+  .item-card .top-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .item-card .item-num { display:flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; background:var(--navy); color:#fff; font-size:11.5px; font-weight:700; }
+  .item-card .top-row .item-tag { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--text-muted); font-weight:600; }
+
+  /* منتقي المنتج — واجهة مخصصة بدل select كلاسيكي */
+  .product-picker { width:100%; padding:13px 14px; border:1.5px solid var(--border); border-radius:12px; font-weight:700; font-size:14.5px; background:var(--bg); appearance:none; -webkit-appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='9'%3E%3Cpath d='M1 1l6 6 6-6' stroke='%230F2A47' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:left 14px center; padding-left:34px; color:var(--navy); transition:.15s; }
+  .product-picker:focus { outline:none; border-color:var(--navy); background-color:#fff; }
+  .product-picker.placeholder { color:var(--text-muted); font-weight:500; }
+
+  /* حالة "لم يُختر منتج بعد" — تحل محل الكمية/السعر/الخصم بالكامل */
+  .pick-hint { display:flex; align-items:center; gap:10px; padding:14px; margin-top:10px; background:linear-gradient(135deg, var(--info-bg), #F5F9FF); border:1.5px dashed #B9D3EC; border-radius:12px; color:var(--info); font-size:13px; font-weight:600; animation:hintPulse 1.8s ease-in-out infinite; }
+  .pick-hint .ic { font-size:20px; }
+  @keyframes hintPulse { 0%,100%{ opacity:1; } 50%{ opacity:.65; } }
+
+  /* منطقة التفاصيل — تظهر بانتقال سلس بعد اختيار المنتج */
+  .item-details { max-height:0; opacity:0; overflow:hidden; transition:max-height .35s ease, opacity .3s ease, margin-top .35s ease; margin-top:0; }
+  .item-details.show { max-height:400px; opacity:1; margin-top:10px; }
+
+  .qty-stepper { display:flex; align-items:stretch; background:var(--bg); border-radius:12px; overflow:hidden; border:1.5px solid var(--border); }
+  .qty-stepper button { width:44px; border:none; background:transparent; color:var(--navy); font-size:20px; font-weight:700; cursor:pointer; transition:background .15s; }
+  .qty-stepper button:active { background:rgba(15,42,71,0.1); }
+  .qty-stepper button.plus { color:var(--success); }
+  .qty-stepper button.minus { color:var(--danger); }
+  .qty-stepper .qty-value { flex:1; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:17px; color:var(--navy); background:#fff; border-inline:1px solid var(--border); }
+  .qty-stepper input { border:none; background:transparent; text-align:center; font-weight:800; font-size:17px; width:100%; padding:0; color:var(--navy); -moz-appearance:textfield; }
+
+  .money-field { position:relative; }
+  .money-field label { font-size:10.5px; color:var(--text-muted); font-weight:700; display:block; margin-bottom:5px; text-align:center; }
+  .money-field .box { position:relative; }
+  .money-field input { width:100%; padding:11px 34px 11px 10px; border:1.5px solid var(--border); border-radius:12px; font-weight:700; font-size:14.5px; text-align:center; color:var(--navy); background:#fff; -moz-appearance:textfield; min-width:0; }
+  .money-field input:focus { outline:none; border-color:var(--navy); }
+  .money-field .suffix { position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:10.5px; color:var(--text-muted); font-weight:600; pointer-events:none; }
+  input[type=number]::-webkit-outer-spin-button, input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+
+  .item-card .fields-row { display:grid; grid-template-columns:1.3fr 1fr 1fr; gap:8px; align-items:start; }
+
+  .item-line-total { display:flex; justify-content:space-between; align-items:center; margin-top:12px; padding-top:12px; border-top:1px dashed var(--border); }
+  .item-line-total .lbl { font-size:12px; color:var(--text-muted); font-weight:600; }
+  .item-line-total .val { font-weight:800; color:var(--navy); font-size:17px; }
+  .remove-item-x { background:var(--danger-bg); border:none; color:var(--danger); font-size:11.5px; cursor:pointer; font-weight:700; padding:5px 12px; border-radius:20px; }
+  @keyframes itemEnter { from { opacity:0; transform:translateY(-10px) scale(.97); } to { opacity:1; transform:translateY(0) scale(1); } }
+  .item-card.item-enter { animation:itemEnter .35s cubic-bezier(.2,.8,.3,1); }
+
+  .sticky-sale-footer { position:sticky; bottom:78px; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:14px; box-shadow:0 -4px 16px rgba(15,42,71,0.1); margin-top:14px; }
+  .sticky-sale-footer .total-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .sticky-sale-footer .total-row .lbl { font-size:13px; color:var(--text-muted); }
+  .sticky-sale-footer .total-row .val { font-size:22px; font-weight:800; color:var(--navy); }
+
+  .truck-display { display:flex; align-items:center; justify-content:space-between; background:var(--bg); padding:12px 14px; border-radius:12px; margin-bottom:4px; }
+  .truck-display .info { display:flex; align-items:center; gap:10px; }
+  .truck-display .info .ic { font-size:22px; }
+  .truck-display .info .txt .lbl { font-size:11px; color:var(--text-muted); }
+  .truck-display .info .txt .val { font-weight:700; font-size:14.5px; }
+  .change-link { background:none; border:1px solid var(--border); color:var(--navy); font-size:12px; font-weight:700; padding:6px 12px; border-radius:20px; cursor:pointer; }
+
+  .toast-container { position:fixed; top:16px; left:16px; right:16px; z-index:200; display:flex; flex-direction:column; gap:8px; align-items:center; }
+  .toast { background:var(--navy); color:#fff; padding:12px 18px; border-radius:12px; box-shadow:var(--shadow); font-size:13.5px; max-width:340px; text-align:center; animation:slideDown .2s ease; }
+  .toast.success { background:var(--success); } .toast.error { background:var(--danger); }
+  @keyframes slideDown { from { transform:translateY(-20px); opacity:0; } to { transform:translateY(0); opacity:1; } }
+
+  .skeleton { background:linear-gradient(90deg,#EEF0F2 25%,#F7F8F9 50%,#EEF0F2 75%); background-size:200% 100%; animation:shimmer 1.4s infinite; border-radius:8px; height:60px; margin-bottom:10px; }
+  @keyframes shimmer { 0%{background-position:200% 0;} 100%{background-position:-200% 0;} }
+
+  .setup-banner { background:var(--warning-bg); color:var(--warning); padding:12px 14px; border-radius:10px; font-size:13px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+</style>
+</head>
+<body>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ===================== LOGIN ===================== -->
+<div id="login-view">
+  <div class="login-card">
+    <h1>🚚 تطبيق المندوب</h1>
+    <p class="sub">سجّل الدخول لبدء يوم العمل</p>
+    <div id="login-error"></div>
+    <div class="field"><label>رابط الـ API</label><input id="apiUrlInput" placeholder="https://script.google.com/macros/s/.../exec"></div>
+    <div class="field"><label>اسم المستخدم</label><input id="usernameInput" autocomplete="username"></div>
+    <div class="field"><label>كلمة المرور</label><input id="passwordInput" type="password" autocomplete="current-password"></div>
+    <button class="btn btn-primary btn-block btn-lg" id="loginBtn" onclick="handleLogin()">تسجيل الدخول</button>
+  </div>
+</div>
+
+<!-- ===================== APP ===================== -->
+<div id="app-view">
+  <div class="topbar">
+    <div class="title" id="topTitle">الرئيسية</div>
+    <div class="icons">
+      <span class="sync-pill" id="syncBadge" style="display:none" onclick="openSyncViewer()"></span>
+      <button class="icon-btn" onclick="handleLogout()">⏻</button>
+    </div>
+  </div>
+  <div class="screen" id="screenContent"></div>
+
+  <div class="bottom-nav">
+    <button class="nav-tab" data-tab="home" onclick="switchTab('home')"><span class="ic">🏠</span><span class="lbl">الرئيسية</span></button>
+    <button class="nav-tab" data-tab="route" onclick="switchTab('route')"><span class="ic">🗺️</span><span class="lbl">المسار</span></button>
+    <button class="nav-tab center" data-tab="sale" onclick="switchTab('sale')"><span class="ic-wrap">🧾</span><span class="lbl">بيع</span></button>
+    <button class="nav-tab" data-tab="customers" onclick="switchTab('customers')"><span class="ic">👥</span><span class="lbl">العملاء</span></button>
+    <button class="nav-tab" data-tab="more" onclick="switchTab('more')"><span class="ic">⋯</span><span class="lbl">المزيد</span></button>
+  </div>
+</div>
+
+<!-- ===================== FULL-SCREEN SHEET ===================== -->
+<div class="sheet-overlay" id="sheet"></div>
+
+<script>
+/* ================================================================
+   CONFIG & STATE
+================================================================ */
+const K = { apiUrl:'dsdrep_api_url', token:'dsdrep_token', user:'dsdrep_user', truck:'dsdrep_truck', route:'dsdrep_route', queue:'dsdrep_queue', visited:'dsdrep_visited' };
+const state = {
+  apiUrl: localStorage.getItem(K.apiUrl) || '',
+  token: localStorage.getItem(K.token) || '',
+  user: JSON.parse(localStorage.getItem(K.user) || 'null'),
+  myTruckId: localStorage.getItem(K.truck) || '',
+  currentTab: 'home',
+  cache: {}
+};
+
+async function api(action, payload) {
+  if (!state.apiUrl) throw new Error('لم يتم إعداد رابط الـ API');
+  const body = Object.assign({}, payload || {}, { token: state.token });
+  const res = await fetch(state.apiUrl, { method:'POST', body: JSON.stringify({ action, payload: body }) });
+  const json = await res.json();
+  if (!json.success) throw new Error(json.error || 'خطأ غير متوقع');
+  return json.data;
+}
+function toast(msg, type) {
+  const el = document.createElement('div');
+  el.className = 'toast' + (type ? ' '+type : '');
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(()=>el.remove(), 3500);
+}
+function fmtMoney(n) { return (Number(n)||0).toLocaleString('ar-DZ',{maximumFractionDigits:2}) + ' دج'; }
+
+/** يمسح الصفر الافتراضي عند التركيز على الخانة، ويعيده إن تُركت فارغة */
+function clearZeroOnFocus(el) { if (el.value === '0') el.value = ''; }
+function restoreZeroOnBlur(el) { if (el.value.trim() === '') el.value = '0'; }
+
+/* ================================================================
+   OFFLINE QUEUE
+================================================================ */
+function getQueue() { try { return JSON.parse(localStorage.getItem(K.queue) || '[]'); } catch(e){ return []; } }
+function saveQueue(q) { localStorage.setItem(K.queue, JSON.stringify(q)); renderSyncBadge(); }
+function queueSale(payload) {
+  const q = getQueue();
+  q.push({ id:'L'+Date.now(), payload, status:'Pending', createdAt:new Date().toISOString(), error:null });
+  saveQueue(q);
+  toast('لا يوجد اتصال — تم حفظ الفاتورة وستُرسَل تلقائيًا لاحقًا', 'error');
+}
+async function trySync() {
+  const q = getQueue();
+  let synced = 0;
+  for (const item of q) {
+    if (item.status !== 'Pending') continue;
+    try { await api('createInvoice', item.payload); item.status='Synced'; synced++; }
+    catch(err) { if (!(err instanceof TypeError)) { item.status='Failed'; item.error=err.message; } }
+  }
+  saveQueue(q);
+  if (synced) toast(`تمت مزامنة ${synced} فاتورة`, 'success');
+}
+function renderSyncBadge() {
+  const el = document.getElementById('syncBadge');
+  const q = getQueue();
+  const pending = q.filter(i=>i.status==='Pending').length;
+  const failed = q.filter(i=>i.status==='Failed').length;
+  if (!pending && !failed) { el.style.display='none'; return; }
+  el.style.display='inline-block';
+  el.className = 'sync-pill' + (failed ? ' failed' : '');
+  el.textContent = failed ? `⚠️ ${failed}` : `⏳ ${pending}`;
+}
+window.addEventListener('online', trySync);
+setInterval(trySync, 30000);
+
+function openSyncViewer() {
+  const q = getQueue();
+  openSheet('حالة المزامنة', `
+    ${q.length ? q.slice().reverse().map(i => `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="num" style="font-size:11.5px;color:var(--text-muted)">${new Date(i.createdAt).toLocaleString('ar-DZ')}</span>
+          <span class="badge ${i.status==='Synced'?'paid':i.status==='Failed'?'unpaid':'partial'}">${i.status==='Synced'?'مزامَنة':i.status==='Failed'?'فشلت':'قيد الانتظار'}</span>
+        </div>
+        <div style="margin-top:6px;font-size:13px">عميل: ${i.payload.customerId} — أصناف: ${i.payload.items.length}</div>
+        ${i.error ? `<div style="color:var(--danger);font-size:12px;margin-top:4px">${i.error}</div>` : ''}
+      </div>
+    `).join('') : `<div class="empty-state"><div class="ic">✅</div>كل شيء متزامن</div>`}
+    <button class="btn btn-secondary btn-block" onclick="trySync().then(()=>openSyncViewer())">🔄 مزامنة الآن</button>
+  `);
+}
+
+/* ================================================================
+   AUTH
+================================================================ */
+document.getElementById('apiUrlInput').value = state.apiUrl;
+async function handleLogin() {
+  const apiUrl = document.getElementById('apiUrlInput').value.trim();
+  const username = document.getElementById('usernameInput').value.trim();
+  const password = document.getElementById('passwordInput').value;
+  const errBox = document.getElementById('login-error');
+  errBox.style.display = 'none';
+  if (!apiUrl || !username || !password) { errBox.textContent='يرجى تعبئة كل الحقول'; errBox.style.display='block'; return; }
+  state.apiUrl = apiUrl; localStorage.setItem(K.apiUrl, apiUrl);
+  const btn = document.getElementById('loginBtn'); btn.disabled=true; btn.textContent='جاري الدخول...';
+  try {
+    const result = await api('login', { username, password });
+    state.token = result.token; state.user = result.user;
+    localStorage.setItem(K.token, state.token); localStorage.setItem(K.user, JSON.stringify(state.user));
+    enterApp();
+  } catch (err) { errBox.textContent = err.message; errBox.style.display='block'; }
+  finally { btn.disabled=false; btn.textContent='تسجيل الدخول'; }
+}
+function handleLogout() {
+  if (!confirm('هل تريد تسجيل الخروج؟')) return;
+  api('logout', {}).catch(()=>{});
+  localStorage.removeItem(K.token); localStorage.removeItem(K.user);
+  state.token=''; state.user=null;
+  document.getElementById('app-view').style.display='none';
+  document.getElementById('login-view').style.display='flex';
+}
+function enterApp() {
+  document.getElementById('login-view').style.display='none';
+  document.getElementById('app-view').style.display='block';
+  renderSyncBadge();
+  trySync();
+  switchTab('home');
+}
+if (state.token && state.user) enterApp();
+
+/* ================================================================
+   TABS / NAV
+================================================================ */
+const TAB_TITLES = { home:'الرئيسية', route:'المسار', sale:'بيع جديد', customers:'العملاء', more:'المزيد' };
+const TAB_RENDERERS = { home:renderHome, route:renderRoute, sale:renderNewSale, customers:renderCustomersList, more:renderMore };
+function switchTab(tab) {
+  state.currentTab = tab;
+  document.getElementById('topTitle').textContent = TAB_TITLES[tab];
+  document.querySelectorAll('.nav-tab').forEach(el => el.classList.toggle('active', el.dataset.tab===tab));
+  const c = document.getElementById('screenContent');
+  c.innerHTML = `<div class="skeleton"></div><div class="skeleton" style="width:70%"></div>`;
+  TAB_RENDERERS[tab](c);
+}
+
+/* ================================================================
+   SHEET (full-screen)
+================================================================ */
+function openSheet(title, bodyHtml, footHtml) {
+  document.getElementById('sheet').innerHTML = `
+    <div class="sheet-head"><h3>${title}</h3><button class="close-x" onclick="closeSheet()">✕</button></div>
+    <div class="sheet-body">${bodyHtml}</div>
+    ${footHtml ? `<div class="sheet-foot">${footHtml}</div>` : ''}
+  `;
+  document.getElementById('sheet').classList.add('open');
+}
+function closeSheet() { document.getElementById('sheet').classList.remove('open'); }
+
+async function ensureCache(key, loader) { if (!state.cache[key]) state.cache[key] = await loader(); return state.cache[key]; }
+function invalidateCache(key) { delete state.cache[key]; }
+function errorCard(msg) { return `<div class="card empty-state"><div class="ic">⚠️</div>${msg}</div>`; }
+
+/* ================================================================
+   HOME SCREEN
+================================================================ */
+async function renderHome(container) {
+  try {
+    if (!state.myTruckId) {
+      const trucks = await ensureCache('trucks', () => api('listTrucks', {}));
+      container.innerHTML = `
+        <div class="setup-banner"><span>⚙️ اختر شاحنتك أولًا للمتابعة</span></div>
+        <div class="card">
+          <div class="section-title">اختر شاحنتك</div>
+          ${trucks.length ? trucks.map(t=>`<button class="btn btn-secondary btn-block" style="margin-bottom:8px" onclick="setMyTruck('${t.truck_id}');switchTab('home')">🚚 ${t.truck_id} — ${t.plate_number||''}</button>`).join('') : '<div class="empty-state">لا توجد شاحنات — أضفها من لوحة الإدارة</div>'}
+        </div>
+      `;
+      return;
+    }
+    const [summary, truckStock, products, trucks] = await Promise.all([
+      api('getDashboardSummary', {}),
+      api('getTruckStock', { truckId: state.myTruckId }),
+      ensureCache('products', () => api('listProducts', {})),
+      ensureCache('trucks', () => api('listTrucks', {}))
+    ]);
+    const myTruck = trucks.find(t => t.truck_id === state.myTruckId);
+    const productName = (id) => { const p = products.find(p=>p.product_id===id); return p ? (p.name_ar||p.short_name) : id; };
+    container.innerHTML = `
+      <p class="screen-sub">أهلًا ${state.user.username} — ${summary.date}</p>
+      <div class="truck-display">
+        <div class="info"><span class="ic">🚚</span><div class="txt"><div class="lbl">شاحنتي</div><div class="val">${myTruck?myTruck.truck_id+' — '+(myTruck.plate_number||''):state.myTruckId}</div></div></div>
+        <button class="change-link" onclick="switchTab('more')">تغيير</button>
+      </div>
+      <div class="kpi-grid" style="margin-top:14px">
+        <div class="kpi-card"><div class="label">مبيعاتي اليوم</div><div class="value num">${fmtMoney(summary.salesToday)}</div></div>
+        <div class="kpi-card"><div class="label">التحصيل اليوم</div><div class="value success num">${fmtMoney(summary.collectionsToday)}</div></div>
+        <div class="kpi-card"><div class="label">أصناف في شاحنتي</div><div class="value num">${truckStock.length}</div></div>
+        <div class="kpi-card"><div class="label">عملاء تمت زيارتهم</div><div class="value num">${summary.customersVisitedToday}</div></div>
+      </div>
+      <button class="btn btn-primary btn-block btn-lg" onclick="switchTab('route')">🚀 ابدأ المسار</button>
+      <div class="section-title">مخزون شاحنتي</div>
+      <div class="card">
+        ${truckStock.length ? truckStock.map(s=>`<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:14px"><span>${productName(s.product_id)}</span><span class="num" style="font-weight:700">${s.quantity_on_hand}</span></div>`).join('') : '<div class="empty-state">الشاحنة فارغة — راجع المسؤول لتحميلها</div>'}
+      </div>
+    `;
+  } catch (err) { container.innerHTML = errorCard(err.message); }
+}
+
+/* ================================================================
+   ROUTE SCREEN
+================================================================ */
+/** المسار يُختار "ليوم واحد فقط" — يُخزَّن بمفتاح يحوي التاريخ، فيُطلب تلقائيًا كل يوم جديد */
+function getTodayRouteId() { return localStorage.getItem(K.route + '_' + todayStr()) || ''; }
+function setTodayRouteId(routeId) { localStorage.setItem(K.route + '_' + todayStr(), routeId); }
+function clearTodayRouteId() { localStorage.removeItem(K.route + '_' + todayStr()); }
+
+async function renderRoute(container) {
+  try {
+    const todayRouteId = getTodayRouteId();
+    if (!todayRouteId) {
+      const routes = await api('listRoutes', {});
+      container.innerHTML = `
+        <div class="empty-state"><div class="ic">🗺️</div>اختر مسارك لليوم (${todayStr()})</div>
+        ${routes.length ? `<div class="card"><div class="section-title">مسارات متاحة</div>
+          ${routes.map(r=>`<button class="btn btn-secondary btn-block" style="margin-bottom:8px" onclick="selectTodayRoute('${r.route_id}')">${r.name} <span class="num" style="color:var(--text-muted);font-size:11px">(${r.route_id})</span></button>`).join('')}
+        </div>` : '<div class="card empty-state">لا توجد مسارات بعد — أنشئها من لوحة الإدارة أولًا</div>'}
+      `;
+      return;
+    }
+    const details = await api('getRouteDetails', { routeId: todayRouteId });
+    const visitedSet = new Set(JSON.parse(localStorage.getItem(K.visited+'_'+todayStr()) || '[]'));
+    container.innerHTML = `
+      <div class="truck-display" style="margin-bottom:14px">
+        <div class="info"><span class="ic">🗺️</span><div class="txt"><div class="lbl">مسار اليوم</div><div class="val">${details.route.name}</div></div></div>
+        <button class="change-link" onclick="clearTodayRouteId();switchTab('route')">تغيير</button>
+      </div>
+      <p class="screen-sub">${visitedSet.size} من ${details.customers.length} تمت زيارتهم</p>
+      ${details.customers.length ? details.customers.map(c => `
+        <div class="customer-card">
+          <div class="row1">
+            <div><div class="name">${visitedSet.has(c.customer_id)?'✅ ':''}${c.business_name}</div><div class="addr">${c.municipality||''} ${c.address?'— '+c.address:''}</div></div>
+          </div>
+          <div class="actions">
+            ${c.maps_link ? `<a class="btn btn-secondary" style="flex:1;text-decoration:none" href="${c.maps_link}" target="_blank">🧭 الطريق</a>` : `<button class="btn btn-secondary" style="flex:1" onclick="captureCustomerLocation('${c.customer_id}', this)">📍 تسجيل الموقع هنا</button>`}
+            <button class="btn btn-primary" style="flex:1" onclick="openCustomerSheet('${c.customer_id}', true)">زيارة</button>
+          </div>
+        </div>
+      `).join('') : `<div class="card empty-state">
+          <div class="ic">👥</div>لا يوجد عملاء في هذا المسار حتى الآن
+          <div style="font-size:11.5px;margin-top:8px;color:var(--text-muted)">تأكد أنك أضفت العملاء لنفس هذا المسار (${details.route.route_id}) من لوحة الإدارة ← المسارات ← إدارة العملاء</div>
+        </div>`}
+    `;
+  } catch (err) { container.innerHTML = errorCard(err.message); }
+}
+function getBalanceClassPlaceholder() { return ''; }
+function todayStr() { return new Date().toISOString().slice(0,10); }
+function markVisited(customerId) {
+  const key = K.visited+'_'+todayStr();
+  const set = new Set(JSON.parse(localStorage.getItem(key) || '[]'));
+  set.add(customerId);
+  localStorage.setItem(key, JSON.stringify(Array.from(set)));
+}
+function selectTodayRoute(routeId) { setTodayRouteId(routeId); switchTab('route'); }
+
+/**
+ * يستخدم GPS الهاتف لتسجيل موقع العميل الحالي — يُستخدم عندما يكون
+ * المندوب واقفًا فعليًا عند العميل، وهو الأنسب لتسجيل موقع دقيق.
+ */
+function captureCustomerLocation(customerId, btnEl) {
+  if (!navigator.geolocation) { toast('المتصفح لا يدعم تحديد الموقع','error'); return; }
+  const originalText = btnEl.textContent;
+  btnEl.textContent = '📡 جارٍ التحديد...';
+  btnEl.disabled = true;
+
+  navigator.geolocation.getCurrentPosition(
+    async function (pos) {
+      try {
+        await api('updateCustomerLocation', {
+          customerId, latitude: pos.coords.latitude, longitude: pos.coords.longitude
+        });
+        toast('تم تسجيل موقع العميل بنجاح ✅', 'success');
+        invalidateCache('customers');
+        // تحديث الواجهة المناسبة: إن كانت نافذة تفاصيل العميل مفتوحة نحدّثها، وإلا نحدّث قائمة المسار
+        const sheetOpen = document.getElementById('sheet').classList.contains('open');
+        if (sheetOpen) openCustomerSheet(customerId, false);
+        else if (state.currentTab === 'route') switchTab('route');
+      } catch (err) {
+        toast(err.message, 'error');
+        btnEl.textContent = originalText; btnEl.disabled = false;
+      }
+    },
+    function (err) {
+      toast('تعذّر الوصول للموقع — تأكد من تفعيل GPS ومنح الإذن للمتصفح', 'error');
+      btnEl.textContent = originalText; btnEl.disabled = false;
+    },
+    { enableHighAccuracy: true, timeout: 15000 }
+  );
+}
+
+/* ================================================================
+   CUSTOMERS LIST
+================================================================ */
+async function renderCustomersList(container) {
+  try {
+    const customers = await ensureCache('customers', () => api('listCustomers', {}));
+    container.innerHTML = `
+      <button class="btn btn-primary btn-block btn-lg" style="margin-bottom:14px" onclick="openNewCustomerSheet()">➕ عميل جديد</button>
+      <input id="custSearch" placeholder="🔍 ابحث باسم العميل أو الهاتف..." style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:14px" oninput="filterCustomersList(this.value)">
+      <div id="custListWrap"></div>
+    `;
+    window.__allCustomersForList = customers;
+    renderCustomersListItems(customers);
+  } catch (err) { container.innerHTML = errorCard(err.message); }
+}
+function filterCustomersList(q) {
+  const all = window.__allCustomersForList || [];
+  const filtered = q ? all.filter(c => (c.business_name||'').includes(q) || (c.phone||'').includes(q)) : all;
+  renderCustomersListItems(filtered);
+}
+function renderCustomersListItems(list) {
+  document.getElementById('custListWrap').innerHTML = list.length ? list.map(c => `
+    <div class="customer-card" onclick="openCustomerSheet('${c.customer_id}')" style="cursor:pointer">
+      <div class="row1"><div class="name">${c.business_name}</div></div>
+      <div class="addr">${c.phone||''} ${c.municipality?'— '+c.municipality:''}</div>
+    </div>
+  `).join('') : '<div class="card empty-state">لا توجد نتائج</div>';
+}
+
+/**
+ * إضافة عميل جديد من الميدان — نسخة مبسّطة عمدًا (اسم + هاتف + موقع فقط).
+ * الحقول المالية (سقف الدين، قائمة السعر...) تبقى من صلاحية المكتب لاحقًا
+ * من لوحة الإدارة، حفاظًا على جودة البيانات المالية.
+ */
+function openNewCustomerSheet() {
+  openSheet('عميل جديد', `
+    <div class="field"><label>الاسم التجاري *</label><input id="nc_name" placeholder="مثال: متجر الأمل"></div>
+    <div class="field"><label>الهاتف</label><input id="nc_phone" type="tel" placeholder="05xxxxxxxx"></div>
+    <div class="field"><label>البلدية / المنطقة</label><input id="nc_municipality"></div>
+    <div class="field"><label>ملاحظة (اختياري)</label><input id="nc_notes" placeholder="مثال: بجانب الصيدلية"></div>
+    <div class="card" style="background:var(--info-bg);color:var(--info);font-size:12.5px;text-align:center" id="nc_locStatus">📍 سيُسجَّل موقعك الحالي تلقائيًا كموقع للمحل</div>
+  `, `<button class="btn btn-success btn-block btn-lg" onclick="submitNewCustomer()">✅ حفظ العميل</button>`);
+}
+async function submitNewCustomer() {
+  const businessName = document.getElementById('nc_name').value.trim();
+  if (!businessName) { toast('الاسم التجاري مطلوب','error'); return; }
+  const phone = document.getElementById('nc_phone').value.trim();
+  const municipality = document.getElementById('nc_municipality').value.trim();
+  const notes = document.getElementById('nc_notes').value.trim();
+  const statusEl = document.getElementById('nc_locStatus');
+
+  const finishCreate = async (lat, lng) => {
+    try {
+      const result = await api('createCustomer', { businessName, phone, municipality, notes });
+      if (lat && lng) {
+        try { await api('updateCustomerLocation', { customerId: result.customerId, latitude: lat, longitude: lng }); } catch (e) {}
+      }
+      invalidateCache('customers');
+      closeSheet();
+      toast('تم إضافة العميل بنجاح 🎉','success');
+      switchTab('customers');
+    } catch (err) { toast(err.message,'error'); }
+  };
+
+  if (navigator.geolocation) {
+    statusEl.textContent = '📡 جارٍ تحديد موقعك...';
+    navigator.geolocation.getCurrentPosition(
+      (pos) => finishCreate(pos.coords.latitude, pos.coords.longitude),
+      () => { toast('تعذّر تحديد الموقع — تم الحفظ بدونه، يمكنك إضافته لاحقًا','error'); finishCreate(null, null); },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  } else {
+    finishCreate(null, null);
+  }
+}
+
+/* ================================================================
+   CUSTOMER DETAIL SHEET
+================================================================ */
+async function openCustomerSheet(customerId, fromRoute) {
+  openSheet('...', `<div class="skeleton"></div><div class="skeleton"></div>`);
+  try {
+    const p = await api('getCustomerProfile', { customerId });
+    if (fromRoute) markVisited(customerId);
+    const balanceClass = p.balance > 0 ? 'owes' : 'clear';
+    document.getElementById('sheet').querySelector('.sheet-head h3').textContent = p.customer.business_name;
+    document.getElementById('sheet').querySelector('.sheet-body').innerHTML = `
+      <div class="card" style="text-align:center">
+        <div style="font-size:12px;color:var(--text-muted)">الرصيد الحالي</div>
+        <div class="num" style="font-size:24px;font-weight:800" class="${balanceClass}">${fmtMoney(Math.abs(p.balance))} ${p.balance>0?'مستحق عليه':p.balance<0?'رصيد دائن':''}</div>
+      </div>
+      <div class="quick-actions">
+        <button onclick="closeSheet();switchTab('sale');presetSaleCustomer('${customerId}')"><span class="ic">🧾</span>بيع</button>
+        <button onclick="openCollectSheet('${customerId}')"><span class="ic">💰</span>تحصيل</button>
+        <button onclick="openReturnSheet('${customerId}')"><span class="ic">↩️</span>مرتجع</button>
+        <button onclick="openContainersSheet('${customerId}')"><span class="ic">📦</span>عبوات</button>
+      </div>
+      <div class="card" style="display:flex;justify-content:space-between;align-items:center">
+        <div><div style="font-size:12.5px;font-weight:700">📍 موقع المحل</div><div style="font-size:11.5px;color:var(--text-muted)">${p.customer.maps_link?'مُسجَّل':'غير مُسجَّل بعد'}</div></div>
+        ${p.customer.maps_link
+          ? `<a class="btn btn-secondary" style="text-decoration:none;padding:8px 14px;font-size:12.5px" href="${p.customer.maps_link}" target="_blank">🧭 فتح الخريطة</a>`
+          : `<button class="btn btn-primary" style="padding:8px 14px;font-size:12.5px" onclick="captureCustomerLocation('${customerId}', this)">📍 تسجيل الآن</button>`}
+      </div>
+      <div class="section-title">آخر الفواتير</div>
+      ${p.recentInvoices.length ? p.recentInvoices.slice(0,5).map(i=>`
+        <div class="card" style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
+          <span class="num" style="font-size:13px">${String(i.date).slice(0,10)}</span>
+          <span class="num" style="font-weight:700">${fmtMoney(i.total)}</span>
+          <span class="badge ${i.payment_status==='Paid'?'paid':i.payment_status==='Partial'?'partial':'unpaid'}">${i.payment_status}</span>
+        </div>
+      `).join('') : '<div class="card empty-state" style="padding:16px">لا توجد فواتير بعد</div>'}
+
+      <button class="btn btn-secondary btn-block" style="margin-top:14px" onclick="toggleLedgerDetail(this)">📋 عرض سجل الحساب الكامل (لتفسير الرصيد)</button>
+      <div id="ledgerDetailWrap" style="display:none;margin-top:10px">
+        ${p.ledger.length ? p.ledger.map(l=>`
+          <div class="card" style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center">
+            <div><div style="font-size:12px;color:var(--text-muted)">${String(l.date).slice(0,16)}</div><div style="font-size:12.5px;font-weight:600">${({Invoice:'فاتورة',Payment:'دفعة',CreditNote:'إشعار دائن',ManualAdjustment:'تعديل يدوي'})[l.entry_type]||l.entry_type}</div></div>
+            <span class="num" style="font-weight:800;color:${l.debit>0?'var(--danger)':'var(--success)'}">${l.debit>0?'+'+fmtMoney(l.debit):'−'+fmtMoney(l.credit)}</span>
+          </div>
+        `).join('') : '<div class="card empty-state">لا توجد حركات بعد</div>'}
+      </div>
+    `;
+  } catch (err) { document.getElementById('sheet').querySelector('.sheet-body').innerHTML = errorCard(err.message); }
+}
+function toggleLedgerDetail(btn) {
+  const wrap = document.getElementById('ledgerDetailWrap');
+  const show = wrap.style.display === 'none';
+  wrap.style.display = show ? 'block' : 'none';
+  btn.textContent = show ? '🔼 إخفاء سجل الحساب' : '📋 عرض سجل الحساب الكامل (لتفسير الرصيد)';
+}
+
+function openCollectSheet(customerId) {
+  openSheet('تحصيل دفعة', `
+    <div class="field"><label>المبلغ *</label><input id="cp_amount" type="number" step="0.01"></div>
+    <div class="field"><label>طريقة الدفع</label>
+      <select id="cp_method"><option value="Cash">نقدًا</option><option value="BankTransfer">تحويل بنكي</option></select>
+    </div>
+  `, `<button class="btn btn-primary btn-block btn-lg" onclick="submitCollect('${customerId}')">تأكيد التحصيل</button>`);
+}
+async function submitCollect(customerId) {
+  const amount = Number(document.getElementById('cp_amount').value);
+  if (!amount || amount<=0) { toast('أدخل مبلغًا صحيحًا','error'); return; }
+  try {
+    await api('registerPayment', { customerId, amount, method: document.getElementById('cp_method').value });
+    closeSheet(); toast('تم تسجيل التحصيل بنجاح','success');
+  } catch (err) { toast(err.message,'error'); }
+}
+
+let mReturnItems = [];
+async function openReturnSheet(customerId) {
+  mReturnItems = [{ productId:'', quantity:1 }];
+  const products = await ensureCache('products', () => api('listProducts', {}));
+  window.__mProducts = products;
+  openSheet('تسجيل مرتجع', `
+    <div class="field"><label>السبب</label>
+      <select id="rt_reason"><option value="Damaged">تالف</option><option value="Expired">منتهي الصلاحية</option><option value="WrongOrder">خطأ طلب</option><option value="Unsold">غير مباع</option></select>
+    </div>
+    <div class="section-title">الأصناف</div>
+    <div id="mReturnItemsWrap"></div>
+    <button class="btn btn-secondary btn-block" onclick="addMReturnItem()">+ إضافة صنف</button>
+  `, `<button class="btn btn-primary btn-block btn-lg" onclick="submitMReturn('${customerId}')">تسجيل المرتجع</button>`);
+  renderMReturnItems();
+}
+function renderMReturnItems() {
+  const products = window.__mProducts||[];
+  document.getElementById('mReturnItemsWrap').innerHTML = mReturnItems.map((it,idx)=>`
+    <div class="item-card">
+      <select onchange="mReturnItems[${idx}].productId=this.value"><option value="">اختر منتجًا...</option>${products.map(p=>`<option value="${p.product_id}" ${it.productId===p.product_id?'selected':''}>${p.name_ar||p.short_name}</option>`).join('')}</select>
+      <input type="number" min="1" value="${it.quantity}" placeholder="الكمية" onchange="mReturnItems[${idx}].quantity=Number(this.value)">
+    </div>
+  `).join('');
+}
+function addMReturnItem() { mReturnItems.push({productId:'',quantity:1}); renderMReturnItems(); }
+async function submitMReturn(customerId) {
+  const valid = mReturnItems.filter(i=>i.productId && i.quantity>0);
+  if (!valid.length) { toast('أضف صنفًا واحدًا على الأقل','error'); return; }
+  try {
+    await api('createReturn', { customerId, reason: document.getElementById('rt_reason').value, items: valid });
+    closeSheet(); toast('تم تسجيل المرتجع — بانتظار التصنيف','success');
+  } catch (err) { toast(err.message,'error'); }
+}
+
+async function openContainersSheet(customerId) {
+  openSheet('العبوات الفارغة', `<div class="skeleton"></div>`);
+  try {
+    const data = await api('getCustomerContainers', { customerId });
+    document.getElementById('sheet').querySelector('.sheet-body').innerHTML = `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        ${Object.keys(data.balances).length ? Object.entries(data.balances).map(([t,b])=>`<span class="badge ${b>0?'unpaid':'paid'}">${t}: ${b}</span>`).join('') : '<span style="color:var(--text-muted);font-size:13px">لا توجد حركات بعد</span>'}
+      </div>
+      <div class="grid-2">
+        <div class="field"><label>النوع</label><input id="ct_type" value="عام"></div>
+        <div class="field"><label>الاتجاه</label><select id="ct_dir"><option value="Out">تسليم</option><option value="In">استرجاع</option></select></div>
+      </div>
+      <div class="field"><label>الكمية</label><input id="ct_qty" type="number" min="1"></div>
+    `;
+    document.getElementById('sheet').querySelector('.sheet-foot')?.remove();
+    document.getElementById('sheet').insertAdjacentHTML('beforeend', `<div class="sheet-foot"><button class="btn btn-primary btn-block btn-lg" onclick="submitMContainer('${customerId}')">تسجيل الحركة</button></div>`);
+  } catch (err) { document.getElementById('sheet').querySelector('.sheet-body').innerHTML = errorCard(err.message); }
+}
+async function submitMContainer(customerId) {
+  const qty = Number(document.getElementById('ct_qty').value);
+  if (!qty || qty<=0) { toast('أدخل كمية صحيحة','error'); return; }
+  try {
+    await api('registerContainerMovement', { customerId, containerType: document.getElementById('ct_type').value||'عام', direction: document.getElementById('ct_dir').value, quantity: qty });
+    toast('تم تسجيل حركة العبوات بنجاح','success');
+    openContainersSheet(customerId);
+  } catch (err) { toast(err.message,'error'); }
+}
+
+/* ================================================================
+   NEW SALE
+================================================================ */
+let mSaleItems = [];
+let mPresetCustomer = '';
+function presetSaleCustomer(customerId) { mPresetCustomer = customerId; }
+async function renderNewSale(container) {
+  if (!state.myTruckId) {
+    container.innerHTML = `<div class="empty-state"><div class="ic">🚚</div>اختر شاحنتك أولًا من تبويب "المزيد"</div>`;
+    return;
+  }
+  try {
+    const [customers, products] = await Promise.all([
+      ensureCache('customers', () => api('listCustomers', {})),
+      ensureCache('products', () => api('listProducts', {}))
+    ]);
+    window.__mSaleProducts = products;
+    mSaleItems = [{ productId:'', quantity:1, unitPrice:0, discount:0 }];
+    container.innerHTML = `
+      <div class="card">
+        <div class="field" style="margin-bottom:0"><label>👤 العميل *</label>
+          <select id="ms_customer">${mPresetCustomer?'':'<option value="">اختر عميلًا...</option>'}${customers.map(c=>`<option value="${c.customer_id}" ${mPresetCustomer===c.customer_id?'selected':''}>${c.business_name}</option>`).join('')}</select>
+        </div>
+      </div>
+      <div class="section-title">🛒 الأصناف</div>
+      <div id="mSaleItemsWrap"></div>
+      <button class="btn btn-secondary btn-block" onclick="addMSaleItem()" style="margin-bottom:16px">+ إضافة صنف</button>
+
+      <div class="section-title">💳 الدفع</div>
+      <div class="card">
+        <div class="grid-2">
+          <div class="field" style="margin-bottom:0"><label>الطريقة</label><select id="ms_method"><option value="Cash">نقدًا</option><option value="Credit">آجل</option></select></div>
+          <div class="field" style="margin-bottom:0"><label>المدفوع الآن</label><input id="ms_paid" type="number" inputmode="decimal" step="0.01" value="0" onfocus="clearZeroOnFocus(this)" onblur="restoreZeroOnBlur(this)" oninput="updateMSaleTotal()"></div>
+        </div>
+      </div>
+
+      <div class="sticky-sale-footer">
+        <div class="total-row"><span class="lbl">إجمالي الفاتورة</span><span class="val num" id="ms_total">0 دج</span></div>
+        <button class="btn btn-success btn-block btn-lg" onclick="submitMSale()">✅ تأكيد البيع</button>
+      </div>
+    `;
+    mPresetCustomer = '';
+    renderMSaleItems();
+  } catch (err) { container.innerHTML = errorCard(err.message); }
+}
+function renderMSaleItems() {
+  const products = window.__mSaleProducts||[];
+  const justAdded = window.__justAddedIdx;
+  document.getElementById('mSaleItemsWrap').innerHTML = mSaleItems.map((it,idx)=>{
+    const hasProduct = !!it.productId;
+    const selectedProduct = products.find(p=>p.product_id===it.productId);
+    const lineTotal = (it.quantity||0)*(it.unitPrice||0) - (it.discount||0);
+    return `
+    <div class="item-card ${hasProduct?'filled':''} ${idx===justAdded?'item-enter':''}">      <div class="top-row">
+        <span class="item-tag"><span class="item-num">${idx+1}</span> ${hasProduct ? (selectedProduct?selectedProduct.name_ar||selectedProduct.short_name:'') : 'صنف جديد'}</span>
+        <button class="remove-item-x" onclick="removeMSaleItem(${idx})">✕ حذف</button>
+      </div>
+
+      <select class="product-picker ${hasProduct?'':'placeholder'}" onchange="updateMSaleItem(${idx},'productId',this.value)">
+        <option value="" ${hasProduct?'':'selected'}>👆 اختر المنتج من هنا...</option>
+        ${products.map(p=>`<option value="${p.product_id}" ${it.productId===p.product_id?'selected':''}>${p.name_ar||p.short_name}</option>`).join('')}
+      </select>
+
+      ${!hasProduct ? `
+        <div class="pick-hint"><span class="ic">👆</span> اختر المنتج أولًا لتظهر لك خانات الكمية والسعر</div>
+      ` : ''}
+
+      <div class="item-details ${hasProduct?'show':''}">
+        <div style="margin-bottom:8px">
+          <label style="font-size:10.5px;color:var(--text-muted);font-weight:700;display:block;margin-bottom:5px">الكمية</label>
+          <div class="qty-stepper">
+            <button type="button" class="minus" onclick="stepMSaleQty(${idx},-1)">−</button>
+            <div class="qty-value"><input type="number" inputmode="numeric" min="1" value="${it.quantity}" onchange="updateMSaleItem(${idx},'quantity',this.value)"></div>
+            <button type="button" class="plus" onclick="stepMSaleQty(${idx},1)">+</button>
+          </div>
+        </div>
+        <div class="fields-row" style="grid-template-columns:1fr 1fr">
+          <div class="money-field">
+            <label>سعر الوحدة</label>
+            <div class="box"><input type="number" inputmode="decimal" step="0.01" value="${it.unitPrice}" onchange="updateMSaleItem(${idx},'unitPrice',this.value)"><span class="suffix">دج</span></div>
+          </div>
+          <div class="money-field">
+            <label>الخصم</label>
+            <div class="box"><input type="number" inputmode="decimal" step="0.01" value="${it.discount}" onfocus="clearZeroOnFocus(this)" onblur="restoreZeroOnBlur(this)" onchange="updateMSaleItem(${idx},'discount',this.value)"><span class="suffix">دج</span></div>
+          </div>
+        </div>
+        <div class="item-line-total"><span class="lbl">إجمالي هذا الصنف</span><span class="val num">${fmtMoney(lineTotal)}</span></div>
+      </div>
+    </div>`;
+  }).join('');
+  window.__justAddedIdx = null;
+  updateMSaleTotal();
+}
+function stepMSaleQty(idx, delta) {
+  const newQty = Math.max(1, (mSaleItems[idx].quantity||1) + delta);
+  updateMSaleItem(idx, 'quantity', newQty);
+}
+function addMSaleItem() {
+  mSaleItems.push({productId:'',quantity:1,unitPrice:0,discount:0});
+  window.__justAddedIdx = mSaleItems.length - 1;
+  renderMSaleItems();
+}
+function removeMSaleItem(idx) { mSaleItems.splice(idx,1); if(!mSaleItems.length) mSaleItems.push({productId:'',quantity:1,unitPrice:0,discount:0}); renderMSaleItems(); }
+function updateMSaleItem(idx, field, value) {
+  mSaleItems[idx][field] = field==='productId' ? value : Number(value);
+  if (field==='productId') {
+    // عند اختيار المنتج لأول مرة: نصفّر الكمية دائمًا إلى 1 بشكل نظيف — لا نرث أي تفاعل سابق
+    mSaleItems[idx].quantity = 1;
+    mSaleItems[idx].discount = 0;
+    const p = (window.__mSaleProducts||[]).find(p=>p.product_id===value);
+    mSaleItems[idx].unitPrice = p ? (Number(p.retail_price)||0) : 0;
+  }
+  renderMSaleItems();
+}
+function updateMSaleTotal() {
+  const total = mSaleItems.reduce((s,i)=>s+(i.quantity*i.unitPrice-(i.discount||0)),0);
+  const el = document.getElementById('ms_total');
+  if (el) el.textContent = fmtMoney(total);
+}
+async function submitMSale() {
+  const customerId = document.getElementById('ms_customer').value;
+  const valid = mSaleItems.filter(i=>i.productId && i.quantity>0);
+  if (!customerId || !valid.length) { toast('اختر العميل وصنفًا واحدًا على الأقل','error'); return; }
+  const amountPaid = Number(document.getElementById('ms_paid').value)||0;
+  const method = document.getElementById('ms_method').value;
+  const payload = { customerId, truckId: state.myTruckId, items: valid.map(i=>({productId:i.productId,quantity:i.quantity,unitPrice:i.unitPrice,discount:i.discount||0})), payment:{method,amountPaid} };
+  try {
+    const result = await api('createInvoice', payload);
+    markVisited(customerId);
+    toast(`تم إنشاء الفاتورة ${result.invoiceId} بنجاح`, 'success');
+    switchTab('home');
+  } catch (err) {
+    if (err instanceof TypeError) { queueSale(payload); switchTab('home'); }
+    else toast(err.message, 'error');
+  }
+}
+
+/* ================================================================
+   MORE TAB
+================================================================ */
+async function renderMore(container) {
+  const trucks = await ensureCache('trucks', () => api('listTrucks', {}));
+  const myTruck = trucks.find(t => t.truck_id === state.myTruckId);
+  container.innerHTML = `
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:4px">${state.user.username}</div>
+      <div style="color:var(--text-muted);font-size:13px">${state.user.roleName||''}</div>
+    </div>
+    <div class="section-title">شاحنتي (ثابتة، لا تتغيّر يوميًا)</div>
+    <div class="card" id="truckSettingCard">
+      ${state.myTruckId && !window.__editingTruck ? `
+        <div class="truck-display" style="background:transparent;padding:0">
+          <div class="info"><span class="ic">🚚</span><div class="txt"><div class="lbl">الشاحنة الحالية</div><div class="val">${myTruck?myTruck.truck_id+' — '+(myTruck.plate_number||''):state.myTruckId}</div></div></div>
+          <button class="change-link" onclick="toggleTruckEdit(true)">تغيير</button>
+        </div>
+      ` : `
+        <div class="field"><label>اختر شاحنتك</label>
+          <select id="more_truck">
+            <option value="">— اختر —</option>
+            ${trucks.map(t=>`<option value="${t.truck_id}" ${state.myTruckId===t.truck_id?'selected':''}>${t.truck_id} — ${t.plate_number||''}</option>`).join('')}
+          </select>
+        </div>
+        <button class="btn btn-primary btn-block" onclick="confirmMyTruck()">حفظ</button>
+      `}
+    </div>
+    <div class="section-title">مسار اليوم</div>
+    <div class="card">
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:8px">المسار يُختار يوميًا من تبويب "المسار" مباشرة لأنه قد يتغيّر كل يوم — لا تحتاج ضبطه هنا.</div>
+      <button class="btn btn-secondary btn-block" onclick="switchTab('route')">🗺️ الذهاب لتبويب المسار</button>
+    </div>
+    <button class="btn btn-secondary btn-block" style="margin-bottom:10px" onclick="openSyncViewer()">🔄 حالة المزامنة</button>
+    <button class="btn btn-danger btn-block" onclick="handleLogout()">تسجيل الخروج</button>
+  `;
+}
+function toggleTruckEdit(val) { window.__editingTruck = val; switchTab('more'); }
+function confirmMyTruck() {
+  const v = document.getElementById('more_truck').value;
+  if (!v) { toast('اختر شاحنة أولًا','error'); return; }
+  state.myTruckId = v; localStorage.setItem(K.truck, v);
+  window.__editingTruck = false;
+  toast('تم حفظ الشاحنة بنجاح','success');
+  switchTab('more');
+}
+function setMyTruck(v) { state.myTruckId = v; localStorage.setItem(K.truck, v); }
+</script>
+
+</body>
+</html>
