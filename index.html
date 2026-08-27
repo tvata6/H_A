@@ -434,23 +434,33 @@ async function renderRoute(container) {
     }
     const details = await api('getRouteDetails', { routeId: todayRouteId });
     const visitedSet = new Set(JSON.parse(localStorage.getItem(K.visited+'_'+todayStr()) || '[]'));
+    let pendingOrders = [];
+    try { pendingOrders = await api('listSalesOrders', { routeId: todayRouteId, status: 'Pending' }); } catch (e) {}
+    const orderByCustomer = {};
+    pendingOrders.forEach(o => { orderByCustomer[o.customer_id] = o; });
+
     container.innerHTML = `
       <div class="truck-display" style="margin-bottom:14px">
         <div class="info"><span class="ic">🗺️</span><div class="txt"><div class="lbl">مسار اليوم</div><div class="val">${details.route.name}</div></div></div>
         <button class="change-link" onclick="clearTodayRouteId();switchTab('route')">تغيير</button>
       </div>
-      <p class="screen-sub">${visitedSet.size} من ${details.customers.length} تمت زيارتهم</p>
-      ${details.customers.length ? details.customers.map(c => `
+      <p class="screen-sub">${visitedSet.size} من ${details.customers.length} تمت زيارتهم${pendingOrders.length?' · '+pendingOrders.length+' طلبية جاهزة للتسليم':''}</p>
+      ${details.customers.length ? details.customers.map(c => {
+        const order = orderByCustomer[c.customer_id];
+        return `
         <div class="customer-card">
           <div class="row1">
-            <div><div class="name">${visitedSet.has(c.customer_id)?'✅ ':''}${c.business_name}</div><div class="addr">${c.municipality||''} ${c.address?'— '+c.address:''}</div></div>
+            <div><div class="name">${visitedSet.has(c.customer_id)?'✅ ':''}${c.business_name} ${order?'<span class="badge partial">📦 طلبية جاهزة</span>':''}</div><div class="addr">${c.municipality||''} ${c.address?'— '+c.address:''}</div></div>
           </div>
           <div class="actions">
             ${c.maps_link ? `<a class="btn btn-secondary" style="flex:1;text-decoration:none" href="${c.maps_link}" target="_blank">🧭 الطريق</a>` : `<button class="btn btn-secondary" style="flex:1" onclick="captureCustomerLocation('${c.customer_id}', this)">📍 تسجيل الموقع هنا</button>`}
-            <button class="btn btn-primary" style="flex:1" onclick="openCustomerSheet('${c.customer_id}', true)">زيارة</button>
+            ${order
+              ? `<button class="btn btn-success" style="flex:1" onclick="openFulfillOrderSheet('${order.order_id}')">📦 تسليم الطلبية</button>`
+              : `<button class="btn btn-primary" style="flex:1" onclick="openCustomerSheet('${c.customer_id}', true)">زيارة</button>`}
           </div>
         </div>
-      `).join('') : `<div class="card empty-state">
+      `;
+      }).join('') : `<div class="card empty-state">
           <div class="ic">👥</div>لا يوجد عملاء في هذا المسار حتى الآن
           <div style="font-size:11.5px;margin-top:8px;color:var(--text-muted)">تأكد أنك أضفت العملاء لنفس هذا المسار (${details.route.route_id}) من لوحة الإدارة ← المسارات ← إدارة العملاء</div>
         </div>`}
@@ -459,6 +469,80 @@ async function renderRoute(container) {
 }
 function getBalanceClassPlaceholder() { return ''; }
 function todayStr() { return new Date().toISOString().slice(0,10); }
+
+/* ================================================================
+   FULFILL ORDER (تسليم طلبية جاهزة أثناء المسار)
+================================================================ */
+let mFulfillItems = [];
+async function openFulfillOrderSheet(orderId) {
+  openSheet('تسليم طلبية', `<div class="skeleton"></div><div class="skeleton"></div>`);
+  try {
+    const [details, products] = await Promise.all([
+      api('getSalesOrderDetails', { orderId }),
+      ensureCache('products', () => api('listProducts', {}))
+    ]);
+    window.__mFulfillProducts = products;
+    const productName = (id) => { const p = products.find(p=>p.product_id===id); return p ? (p.name_ar||p.short_name) : id; };
+    mFulfillItems = details.items.map(it => ({
+      productId: it.product_id, quantity: Number(it.quantity_requested), unitPrice: Number(it.unit_price)||0, discount: 0
+    }));
+    document.getElementById('sheet').querySelector('.sheet-head h3').textContent = 'تسليم الطلبية';
+    document.getElementById('sheet').querySelector('.sheet-body').innerHTML = `
+      <div class="card" style="background:var(--info-bg);color:var(--info);font-size:12.5px;text-align:center">📦 عدِّل الكمية إن نقص شيء من الشاحنة قبل التأكيد</div>
+      <div id="mFulfillItemsWrap"></div>
+      <div class="section-title">الدفع</div>
+      <div class="grid-2">
+        <div class="field"><label>الطريقة</label><select id="ff_method"><option value="Cash">نقدًا</option><option value="Credit">آجل</option></select></div>
+        <div class="field"><label>المدفوع الآن</label><input id="ff_paid" type="number" inputmode="decimal" step="0.01" value="0" onfocus="clearZeroOnFocus(this)" onblur="restoreZeroOnBlur(this)"></div>
+      </div>
+    `;
+    renderMFulfillItems(productName);
+    document.getElementById('sheet').querySelector('.sheet-foot')?.remove();
+    document.getElementById('sheet').insertAdjacentHTML('beforeend', `<div class="sheet-foot"><button class="btn btn-success btn-block btn-lg" onclick="submitFulfillOrder('${orderId}')">✅ تأكيد التسليم</button></div>`);
+  } catch (err) { document.getElementById('sheet').querySelector('.sheet-body').innerHTML = errorCard(err.message); }
+}
+function renderMFulfillItems(productName) {
+  document.getElementById('mFulfillItemsWrap').innerHTML = mFulfillItems.map((it, idx) => `
+    <div class="item-card filled">
+      <div class="top-row"><span class="item-tag"><span class="item-num">${idx+1}</span> ${productName(it.productId)}</span></div>
+      <div class="item-details show">
+        <label style="font-size:10.5px;color:var(--text-muted);font-weight:700;display:block;margin-bottom:5px">الكمية المُسلَّمة فعليًا</label>
+        <div class="qty-stepper">
+          <button type="button" class="minus" onclick="stepFulfillQty(${idx},-1)">−</button>
+          <div class="qty-value"><input type="number" inputmode="numeric" min="0" value="${it.quantity}" onchange="mFulfillItems[${idx}].quantity=Number(this.value)"></div>
+          <button type="button" class="plus" onclick="stepFulfillQty(${idx},1)">+</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+function stepFulfillQty(idx, delta) {
+  mFulfillItems[idx].quantity = Math.max(0, (mFulfillItems[idx].quantity||0) + delta);
+  const products = window.__mFulfillProducts||[];
+  const productName = (id) => { const p = products.find(p=>p.product_id===id); return p ? (p.name_ar||p.short_name) : id; };
+  renderMFulfillItems(productName);
+}
+async function submitFulfillOrder(orderId) {
+  const validItems = mFulfillItems.filter(i => i.quantity > 0);
+  if (!validItems.length) { toast('لا يمكن تسليم طلبية بكمية صفرية في كل الأصناف','error'); return; }
+  const amountPaid = Number(document.getElementById('ff_paid').value)||0;
+  const method = document.getElementById('ff_method').value;
+  try {
+    const result = await api('fulfillSalesOrder', {
+      orderId, truckId: state.myTruckId,
+      items: validItems.map(i=>({productId:i.productId, quantity:i.quantity, unitPrice:i.unitPrice, discount:i.discount||0})),
+      payment: { method, amountPaid }
+    });
+    closeSheet();
+    if (result.hasShortfall) {
+      toast(`تم التسليم، لكن بنقص عن المطلوب — سيظهر تنبيه في لوحة الإدارة. الفاتورة: ${result.invoiceId}`, 'error');
+    } else {
+      toast(`تم تسليم الطلبية بالكامل — الفاتورة ${result.invoiceId}`, 'success');
+    }
+    switchTab('route');
+  } catch (err) { toast(err.message, 'error'); }
+}
+
 function markVisited(customerId) {
   const key = K.visited+'_'+todayStr();
   const set = new Set(JSON.parse(localStorage.getItem(key) || '[]'));
@@ -717,9 +801,11 @@ async function submitMContainer(customerId) {
 ================================================================ */
 let mSaleItems = [];
 let mPresetCustomer = '';
+let mSaleMode = 'direct'; // 'direct' = بيع مباشر (فاتورة فورية) | 'order' = أخذ طلبية (بدون فاتورة الآن)
 function presetSaleCustomer(customerId) { mPresetCustomer = customerId; }
+function setSaleMode(mode) { mSaleMode = mode; switchTab('sale'); }
 async function renderNewSale(container) {
-  if (!state.myTruckId) {
+  if (!state.myTruckId && mSaleMode === 'direct') {
     container.innerHTML = `<div class="empty-state"><div class="ic">🚚</div>اختر شاحنتك أولًا من تبويب "المزيد"</div>`;
     return;
   }
@@ -730,7 +816,13 @@ async function renderNewSale(container) {
     ]);
     window.__mSaleProducts = products;
     mSaleItems = [{ productId:'', quantity:1, unitPrice:0, discount:0 }];
+    const isOrderMode = mSaleMode === 'order';
     container.innerHTML = `
+      <div class="card" style="display:flex;padding:6px;gap:6px">
+        <button class="btn ${!isOrderMode?'btn-primary':'btn-secondary'}" style="flex:1" onclick="setSaleMode('direct')">🧾 بيع مباشر</button>
+        <button class="btn ${isOrderMode?'btn-primary':'btn-secondary'}" style="flex:1" onclick="setSaleMode('order')">📝 أخذ طلبية</button>
+      </div>
+      ${isOrderMode ? `<div class="card" style="background:var(--info-bg);color:var(--info);font-size:12.5px;text-align:center">📝 هذه طلبية فقط — لن تُنشأ فاتورة أو تُخصم من الشاحنة الآن، بل تُسلَّم لاحقًا</div>` : ''}
       <div class="card">
         <div class="field" style="margin-bottom:0"><label>👤 العميل *</label>
           <select id="ms_customer">${mPresetCustomer?'':'<option value="">اختر عميلًا...</option>'}${customers.map(c=>`<option value="${c.customer_id}" ${mPresetCustomer===c.customer_id?'selected':''}>${c.business_name}</option>`).join('')}</select>
@@ -740,17 +832,20 @@ async function renderNewSale(container) {
       <div id="mSaleItemsWrap"></div>
       <button class="btn btn-secondary btn-block" onclick="addMSaleItem()" style="margin-bottom:16px">+ إضافة صنف</button>
 
+      ${!isOrderMode ? `
       <div class="section-title">💳 الدفع</div>
       <div class="card">
         <div class="grid-2">
           <div class="field" style="margin-bottom:0"><label>الطريقة</label><select id="ms_method"><option value="Cash">نقدًا</option><option value="Credit">آجل</option></select></div>
           <div class="field" style="margin-bottom:0"><label>المدفوع الآن</label><input id="ms_paid" type="number" inputmode="decimal" step="0.01" value="0" onfocus="clearZeroOnFocus(this)" onblur="restoreZeroOnBlur(this)" oninput="updateMSaleTotal()"></div>
         </div>
-      </div>
+      </div>` : ''}
 
       <div class="sticky-sale-footer">
-        <div class="total-row"><span class="lbl">إجمالي الفاتورة</span><span class="val num" id="ms_total">0 دج</span></div>
-        <button class="btn btn-success btn-block btn-lg" onclick="submitMSale()">✅ تأكيد البيع</button>
+        <div class="total-row"><span class="lbl">${isOrderMode?'إجمالي الطلبية (تقديري)':'إجمالي الفاتورة'}</span><span class="val num" id="ms_total">0 دج</span></div>
+        ${isOrderMode
+          ? `<button class="btn btn-success btn-block btn-lg" onclick="submitMOrder()">📝 حفظ الطلبية</button>`
+          : `<button class="btn btn-success btn-block btn-lg" onclick="submitMSale()">✅ تأكيد البيع</button>`}
       </div>
     `;
     mPresetCustomer = '';
@@ -847,6 +942,20 @@ async function submitMSale() {
     if (err instanceof TypeError) { queueSale(payload); switchTab('home'); }
     else toast(err.message, 'error');
   }
+}
+async function submitMOrder() {
+  const customerId = document.getElementById('ms_customer').value;
+  const valid = mSaleItems.filter(i=>i.productId && i.quantity>0);
+  if (!customerId || !valid.length) { toast('اختر العميل وصنفًا واحدًا على الأقل','error'); return; }
+  try {
+    const result = await api('createSalesOrder', {
+      customerId, routeId: getTodayRouteId(),
+      items: valid.map(i=>({productId:i.productId, quantity:i.quantity, unitPrice:i.unitPrice}))
+    });
+    toast(`تم حفظ الطلبية ${result.orderId} بنجاح — ستُسلَّم لاحقًا`, 'success');
+    mSaleMode = 'direct';
+    switchTab('home');
+  } catch (err) { toast(err.message, 'error'); }
 }
 
 /* ================================================================
